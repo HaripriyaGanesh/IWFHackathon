@@ -355,6 +355,100 @@ renderPersona(famPersona,famAnswers);
 setBlur(false);
 showApp();
 };
-function recalc(){alert('Demo: roadmap recalculated from your profile, destination, stage and outstanding tasks.')}function ask(){const i=document.getElementById('question'),q=i.value.trim();if(!q)return;const c=document.getElementById('chat');c.insertAdjacentHTML('beforeend','<div class="bubble user">'+q.replace(/[<>]/g,'')+'</div>');let a='I can break that into a step-by-step relocation task and point you to the official Finnish source. In production, this answer would be generated from a cited, freshness-checked knowledge base.';if(/housing|rent/i.test(q))a='For housing, I would first identify your city, arrival date and budget, then show suitable student or private-rental pathways plus the official guidance relevant to your situation.';if(/permit|visa|immigration/i.test(q))a='For immigration questions, the assistant should retrieve the current Finnish Immigration Service guidance, summarise it in plain language and show the source and date checked.';c.insertAdjacentHTML('beforeend','<div class="bubble">'+a+'</div>');i.value='';c.scrollTop=c.scrollHeight}modal.addEventListener('click',e=>{if(e.target===modal)closeOnboard()});
+function recalc(){alert('Demo: roadmap recalculated from your profile, destination, stage and outstanding tasks.')}const RELOCATION_API_BASE_URL=(window.RELOCATION_API_BASE_URL||'http://localhost:8000');
+// Currently pointed at the simple backend's POST /api/query ({text} in, {provider,answer,sources,rag_used} out).
+// If you switch to the fuller orchestrator backend (POST /api/v1/chat, {message,profile} in,
+// {answer,intent,stage,confidence,actions,sources,warnings,metadata} out), change this to '/api/v1/chat'
+// and change the payload built in ask() below to {message:q, profile:buildRelocationProfile()}.
+const RELOCATION_API_ENDPOINT='/api/query';
+function chatEscapeHtml(s){return String(s==null?'':s).replace(/[<>&]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;'}[c]})}
+function chatAppendBubble(html,cls){const c=document.getElementById('chat');c.insertAdjacentHTML('beforeend','<div class="bubble'+(cls?(' '+cls):'')+'">'+html+'</div>');c.scrollTop=c.scrollHeight;return c.lastElementChild}
+function buildRelocationProfile(){
+const persona=PERSONAS[currentPersona]||{};
+const sub=persona.sub||'';
+const arrowMatch=sub.match(/\u2192\s*([A-Za-z\u00C0-\u00FF\s]+)$/);
+const destination_city=arrowMatch?arrowMatch[1].trim():null;
+const employment_status=currentPersona==='Professional'?'employed':(currentPersona==='Researcher'?'researcher':(currentPersona==='Student'?'student':null));
+const spouse=!!(typeof famAnswers!=='undefined'&&famAnswers&&(famAnswers.family==='spouse'||famAnswers.family==='kids'));
+const children=(typeof famAnswers!=='undefined'&&famAnswers&&famAnswers.ages)?famAnswers.ages.length:0;
+return{origin_country:'India',destination_city:destination_city,spouse:spouse,children:children,employment_status:employment_status}
+}
+function buildContextualMessage(q){
+const p=buildRelocationProfile();
+const bits=[];
+if(p.destination_city)bits.push('destination: '+p.destination_city);
+if(p.employment_status)bits.push('status: '+p.employment_status);
+if(p.spouse)bits.push('traveling with spouse');
+if(p.children)bits.push(p.children+' child'+(p.children>1?'ren':''));
+if(!bits.length)return q;
+return '[User context — '+bits.join(', ')+'] '+q;
+}
+function renderChatMeta(data){
+let html='';
+if(Array.isArray(data.actions)&&data.actions.length){
+html+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);"><p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#617387;margin:0 0 6px;">Suggested next steps</p>'+
+data.actions.map(function(a){return '<div style="font-size:13px;margin-bottom:4px;">\u2022 '+chatEscapeHtml(a.title)+' <span style="color:#8a97a6;font-size:11px;">('+chatEscapeHtml(a.priority)+')</span></div>'}).join('')+
+'</div>';
+}
+if(Array.isArray(data.sources)&&data.sources.length){
+html+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);"><p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#617387;margin:0 0 6px;">Sources</p>'+
+data.sources.map(function(s){
+const href=s.url||s.link||'';
+if(!href)return '';
+return '<div style="font-size:13px;margin-bottom:4px;"><a href="'+chatEscapeHtml(href)+'" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">'+chatEscapeHtml(s.title||s.domain||href)+'</a>'+(s.official?' <span style="color:#087c6d;font-size:11px;">\u00b7 official</span>':'')+'</div>'
+}).join('')+
+'</div>';
+}
+if(Array.isArray(data.warnings)&&data.warnings.length){
+html+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);color:#9a6b1f;font-size:12px;line-height:1.5;">'+
+data.warnings.map(function(w){return '\u26a0 '+chatEscapeHtml(w)}).join('<br>')+
+'</div>';
+}
+if(data.confidence){
+const colors={high:'#087c6d',medium:'#9a6b1f',low:'#c0392b'};
+html+='<div style="margin-top:8px;font-size:11px;color:'+(colors[data.confidence]||'#617387')+';">Confidence: '+chatEscapeHtml(data.confidence)+'</div>';
+}
+return html;
+}
+function formatErrorDetail(errBody){
+if(!errBody)return '';
+const d=errBody.detail;
+if(!d)return '';
+if(typeof d==='string')return d;
+if(Array.isArray(d)){
+return d.map(function(e){
+if(e&&typeof e==='object'){
+const field=Array.isArray(e.loc)?e.loc[e.loc.length-1]:'';
+return (field?field+': ':'')+(e.msg||JSON.stringify(e));
+}
+return String(e);
+}).join('; ');
+}
+try{return JSON.stringify(d)}catch(e){return String(d)}
+}
+async function ask(){
+const i=document.getElementById('question'),q=i.value.trim();
+if(!q)return;
+const c=document.getElementById('chat');
+c.insertAdjacentHTML('beforeend','<div class="bubble user">'+chatEscapeHtml(q)+'</div>');
+i.value='';
+c.scrollTop=c.scrollHeight;
+const thinking=chatAppendBubble('<span style="opacity:.6">Thinking\u2026</span>');
+const payload={text:buildContextualMessage(q)};
+try{
+const res=await fetch(RELOCATION_API_BASE_URL+RELOCATION_API_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+if(!res.ok){
+let detail='';
+try{const errBody=await res.json();detail=formatErrorDetail(errBody)}catch(e){}
+throw new Error('Backend returned '+res.status+(detail?(': '+detail):''))
+}
+const data=await res.json();
+thinking.innerHTML=chatEscapeHtml(data.answer||'')+renderChatMeta(data);
+}catch(err){
+console.error('Relocation chat request failed:',err);
+thinking.innerHTML='I couldn\u2019t reach the assistant backend right now ('+chatEscapeHtml(err.message||'network error')+'). Make sure the backend API server is running at '+chatEscapeHtml(RELOCATION_API_BASE_URL)+' and try again.';
+}
+c.scrollTop=c.scrollHeight;
+}modal.addEventListener('click',e=>{if(e.target===modal)closeOnboard()});
 </script>
 </body></html>
