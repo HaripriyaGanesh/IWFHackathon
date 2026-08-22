@@ -356,32 +356,39 @@ setBlur(false);
 showApp();
 };
 function recalc(){alert('Demo: roadmap recalculated from your profile, destination, stage and outstanding tasks.')}const RELOCATION_API_BASE_URL=(window.RELOCATION_API_BASE_URL||'http://localhost:8000');
-// Currently pointed at the simple backend's POST /api/query ({text} in, {provider,answer,sources,rag_used} out).
-// If you switch to the fuller orchestrator backend (POST /api/v1/chat, {message,profile} in,
-// {answer,intent,stage,confidence,actions,sources,warnings,metadata} out), change this to '/api/v1/chat'
-// and change the payload built in ask() below to {message:q, profile:buildRelocationProfile()}.
 const RELOCATION_API_ENDPOINT='/api/query';
 function chatEscapeHtml(s){return String(s==null?'':s).replace(/[<>&]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;'}[c]})}
 function chatAppendBubble(html,cls){const c=document.getElementById('chat');c.insertAdjacentHTML('beforeend','<div class="bubble'+(cls?(' '+cls):'')+'">'+html+'</div>');c.scrollTop=c.scrollHeight;return c.lastElementChild}
-function buildRelocationProfile(){
+function mapUserType(persona){return persona==='Student'?'student':'professional'}
+function buildApiProfileFields(){
 const persona=PERSONAS[currentPersona]||{};
-const sub=persona.sub||'';
-const arrowMatch=sub.match(/\u2192\s*([A-Za-z\u00C0-\u00FF\s]+)$/);
-const destination_city=arrowMatch?arrowMatch[1].trim():null;
-const employment_status=currentPersona==='Professional'?'employed':(currentPersona==='Researcher'?'researcher':(currentPersona==='Student'?'student':null));
-const spouse=!!(typeof famAnswers!=='undefined'&&famAnswers&&(famAnswers.family==='spouse'||famAnswers.family==='kids'));
-const children=(typeof famAnswers!=='undefined'&&famAnswers&&famAnswers.ages)?famAnswers.ages.length:0;
-return{origin_country:'India',destination_city:destination_city,spouse:spouse,children:children,employment_status:employment_status}
+const fields={};
+const username=persona.name;
+if(username)fields.username=username;
+if(currentPersona)fields.user_type=mapUserType(currentPersona);
+if(typeof famAnswers!=='undefined'&&famAnswers&&famAnswers.living){
+fields.family_status=famAnswers.living==='alone'?'alone':'with_family';
 }
-function buildContextualMessage(q){
-const p=buildRelocationProfile();
-const bits=[];
-if(p.destination_city)bits.push('destination: '+p.destination_city);
-if(p.employment_status)bits.push('status: '+p.employment_status);
-if(p.spouse)bits.push('traveling with spouse');
-if(p.children)bits.push(p.children+' child'+(p.children>1?'ren':''));
-if(!bits.length)return q;
-return '[User context — '+bits.join(', ')+'] '+q;
+const hasKids=!!(typeof famAnswers!=='undefined'&&famAnswers&&famAnswers.family==='kids'&&famAnswers.ages&&famAnswers.ages.length);
+fields.has_kids=hasKids;
+fields.kids_ages=hasKids?famAnswers.ages.map(function(a){return parseInt(a,10)}).filter(function(n){return Number.isFinite(n)}):[];
+return fields;
+}
+function formatAnswerHtml(text){
+if(!text)return '';
+const escaped=chatEscapeHtml(text);
+let styled=escaped.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+styled=styled.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-weight:500;">$1</a>');
+const blocks=styled.split(/\n\s*\n/);
+return blocks.map(function(block){
+const lines=block.split('\n').map(function(l){return l.trim()}).filter(Boolean);
+if(!lines.length)return '';
+const isList=lines.every(function(l){return /^[-\u2022]\s+/.test(l)});
+if(isList){
+return '<ul style="margin:4px 0 10px 18px;padding:0;">'+lines.map(function(l){return '<li style="margin-bottom:6px;line-height:1.5;">'+l.replace(/^[-\u2022]\s+/,'')+'</li>'}).join('')+'</ul>';
+}
+return '<p style="margin:0 0 10px;line-height:1.5;">'+lines.join('<br>')+'</p>';
+}).join('');
 }
 function renderChatMeta(data){
 let html='';
@@ -434,7 +441,7 @@ c.insertAdjacentHTML('beforeend','<div class="bubble user">'+chatEscapeHtml(q)+'
 i.value='';
 c.scrollTop=c.scrollHeight;
 const thinking=chatAppendBubble('<span style="opacity:.6">Thinking\u2026</span>');
-const payload={text:buildContextualMessage(q)};
+const payload=Object.assign({text:q},buildApiProfileFields());
 try{
 const res=await fetch(RELOCATION_API_BASE_URL+RELOCATION_API_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
 if(!res.ok){
@@ -443,7 +450,7 @@ try{const errBody=await res.json();detail=formatErrorDetail(errBody)}catch(e){}
 throw new Error('Backend returned '+res.status+(detail?(': '+detail):''))
 }
 const data=await res.json();
-thinking.innerHTML=chatEscapeHtml(data.answer||'')+renderChatMeta(data);
+thinking.innerHTML=formatAnswerHtml(data.answer||'')+renderChatMeta(data);
 }catch(err){
 console.error('Relocation chat request failed:',err);
 thinking.innerHTML='I couldn\u2019t reach the assistant backend right now ('+chatEscapeHtml(err.message||'network error')+'). Make sure the backend API server is running at '+chatEscapeHtml(RELOCATION_API_BASE_URL)+' and try again.';
