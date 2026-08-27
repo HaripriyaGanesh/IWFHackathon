@@ -7,13 +7,13 @@ Researcher:[['Hosting agreement','Uploaded'],['Salary confirmation letter','Not 
 const DEMO_ACCOUNTS={'meera.student':{pass:'Finland2026',persona:'Student'},'arjun.pro':{pass:'Finland2026',persona:'Professional'}};
 const familyModal=document.getElementById('familyModal');
 const PERSONAS={
-Student:{name:'Meera',sub:'Student · Bengaluru → Helsinki',progress:42,
+Student:{name:'Meera',sub:'Student · Helsinki',progress:42,
 steps:[['done','✓','Secure study place','Completed · university admission'],['done','✓','Prepare residence permit','Documents ready · insurance pending'],['','3','Plan finances','Prove roughly €800/month living-cost funds'],['','4','Arrival setup','Identity code · municipality · services']],
 tasks:[[1,'Confirm admission / offer','Done · pathway requirement'],[0,'Arrange required insurance','Before submitting your permit application'],[0,'Prepare proof of funds','~€800/month personal savings, student permit basis'],[0,'Plan post-arrival registration','Based on your city and situation']]},
-Researcher:{name:'Divya',sub:'Researcher · Pune → Espoo',progress:55,
+Researcher:{name:'Divya',sub:'Researcher · Espoo',progress:55,
 steps:[['done','✓','Sign hosting agreement','Completed · with research organisation'],['done','✓','Apply for researcher permit','Submitted · salary meets collective agreement'],['','3','Arrange family permit','For spouse and children, if applicable'],['','4','Arrival setup','Identity code · municipality · services']],
 tasks:[[1,'Sign hosting agreement','Done · basis for researcher permit'],[1,'Confirm salary meets threshold','Done · min. approx €1,463/month in 2026'],[0,'Arrange family residence permit','If relocating with spouse or children'],[0,'Plan post-arrival registration','DVV, tax card, bank, Kela']]},
-Professional:{name:'Arjun',sub:'Professional with family · Chennai → Helsinki',progress:35,
+Professional:{name:'Arjun',sub:'Professional with family · Helsinki',progress:35,
 steps:[['done','✓','Accept job offer','Completed · employer sponsoring permit'],['done','✓','Apply for employment permit','Documents submitted'],['','3','Plan for family','School & daycare research, spouse support'],['','4','Arrival setup','Identity code · municipality · housing']],
 tasks:[[1,'Confirm employment contract & permit basis','Done · employer-sponsored'],[0,'Arrange housing','Before arrival or shortly after'],[0,'Research school and daycare options','For accompanying children'],[0,'Plan post-arrival registration','DVV, tax card, bank, Kela']]}
 };
@@ -94,34 +94,34 @@ return '<div class="rmcard pre" data-stage="'+id+'" onclick="toggleStage(\''+id+
 function studentOverride(family){
 if(!family||!family.living){return{}}
 if(family.living==='alone'){
-return{sub:'Student · Bengaluru → Helsinki',
+return{sub:'Student · Helsinki',
 step3:['','3','Plan finances','Prove roughly €800/month living-cost funds'],
 tasks:[[1,'Confirm admission / offer','Done · pathway requirement'],[0,'Arrange required insurance','Before submitting your permit application'],[0,'Prepare proof of funds','~€800/month personal savings, student permit basis'],[0,'Plan post-arrival registration','Based on your city and situation']]};
 }
 if(family.family==='spouse'){
-return{sub:'Student, relocating with spouse · Bengaluru → Helsinki',
+return{sub:'Student, relocating with spouse · Helsinki',
 step3:['','3','Plan for spouse','Spouse residence permit on family ties, income requirement applies'],
 tasks:[[1,'Confirm admission / offer','Done · pathway requirement'],[0,'Arrange required insurance','Before submitting your permit application'],[0,'Prepare proof of funds','~€800/month personal savings, student permit basis'],[0,'Arrange spouse residence permit','On family ties · income requirement ~€610/month for spouse'],[0,'Plan post-arrival registration','Based on your city and situation']]};
 }
 const ages=(family.ages||[]).join(', ');
-return{sub:'Student with family · Bengaluru → Helsinki',
+return{sub:'Student with family · Helsinki',
 step3:['','3','Plan for family','Spouse and children\u2019s permits, school & daycare research'],
 tasks:[[1,'Confirm admission / offer','Done · pathway requirement'],[0,'Arrange required insurance','Before submitting your permit application'],[0,'Prepare proof of funds','~€800/month personal savings, student permit basis'],[0,'Arrange spouse and children\u2019s residence permits','On family ties · income requirement per family member applies'],[0,'Research school and daycare options','For children aged '+ages],[0,'Plan post-arrival registration','Based on your city and situation']]};
 }
 function professionalOverride(family){
 if(!family||!family.living){return{}}
 if(family.living==='alone'){
-return{sub:'Professional · Chennai → Helsinki',
+return{sub:'Professional · Helsinki',
 step3:['','3','Finalise logistics','Insurance, banking prep and travel booking'],
 tasks:[[1,'Confirm employment contract & permit basis','Done · employer-sponsored'],[0,'Arrange housing','Before arrival or shortly after'],[0,'Plan post-arrival registration','DVV, tax card, bank, Kela']]};
 }
 if(family.family==='spouse'){
-return{sub:'Professional, relocating with spouse · Chennai → Helsinki',
+return{sub:'Professional, relocating with spouse · Helsinki',
 step3:['','3','Plan for spouse','Spouse residence permit and settling-in support'],
 tasks:[[1,'Confirm employment contract & permit basis','Done · employer-sponsored'],[0,'Arrange housing','Before arrival or shortly after'],[0,'Arrange spouse residence permit','Based on your employment permit basis'],[0,'Plan post-arrival registration','DVV, tax card, bank, Kela']]};
 }
 const ages=(family.ages||[]).join(', ');
-return{sub:'Professional with family · Chennai → Helsinki',
+return{sub:'Professional with family · Helsinki',
 step3:['','3','Plan for family','School & daycare research, spouse support'],
 tasks:[[1,'Confirm employment contract & permit basis','Done · employer-sponsored'],[0,'Arrange housing','Before arrival or shortly after'],[0,'Arrange spouse and children\u2019s residence permits','Based on your employment permit basis'],[0,'Research school and daycare options','For children aged '+ages],[0,'Plan post-arrival registration','DVV, tax card, bank, Kela']]};
 }
@@ -290,126 +290,42 @@ famBox.innerHTML='<div style="text-align:center;padding:6px 0 4px;">'+
 window.famComplete=function(){
 familyModal.classList.remove('open');
 renderPersona(famPersona,famAnswers);
+document.getElementById('creatingOverlay').classList.add('open');
+setTimeout(function(){
+document.getElementById('creatingOverlay').classList.remove('open');
 setBlur(false);
 showApp();
+},1600);
 };
 function recalc(){alert('Demo: roadmap recalculated from your profile, destination, stage and outstanding tasks.')}
-// Base URL of your backend. Override by setting window.RELOCATION_API_BASE_URL before this script loads.
-const RELOCATION_API_BASE_URL=(window.RELOCATION_API_BASE_URL||'http://localhost:8000');
-const RELOCATION_API_ENDPOINT='/api/query';
-function chatEscapeHtml(s){return String(s==null?'':s).replace(/[<>&]/g,function(c){return{'<':'&lt;','>':'&gt;','&':'&amp;'}[c]})}
-function chatAppendBubble(html,cls){const c=document.getElementById('chat');c.insertAdjacentHTML('beforeend','<div class="bubble'+(cls?(' '+cls):'')+'">'+html+'</div>');c.scrollTop=c.scrollHeight;return c.lastElementChild}
-// Maps the app's three onboarding personas onto the backend's two-value user_type.
-// Researcher counts as "professional" for this purpose — there's no separate
-// backend category for it yet.
-function mapUserType(persona){return persona==='Student'?'student':'professional'}
-// Builds the exact profile fields the backend's /api/query endpoint accepts,
-// live from whatever the user has actually selected so far (persona choice +
-// family questionnaire answers). Nothing here is hardcoded/guessed — fields
-// are simply omitted if the user hasn't answered that part yet.
-function buildApiProfileFields(){
-const persona=PERSONAS[currentPersona]||{};
-const fields={};
-const username=persona.name;
-if(username)fields.username=username;
-if(currentPersona)fields.user_type=mapUserType(currentPersona);
-if(typeof famAnswers!=='undefined'&&famAnswers&&famAnswers.living){
-fields.family_status=famAnswers.living==='alone'?'alone':'with_family';
-}
-const hasKids=!!(typeof famAnswers!=='undefined'&&famAnswers&&famAnswers.family==='kids'&&famAnswers.ages&&famAnswers.ages.length);
-fields.has_kids=hasKids;
-fields.kids_ages=hasKids?famAnswers.ages.map(function(a){return parseInt(a,10)}).filter(function(n){return Number.isFinite(n)}):[];
-return fields;
-}
-// Lightweight Markdown-ish renderer for the assistant's answer text: turns
-// **bold** into <strong>, groups of "- "/"\u2022 " lines into a <ul>, and blank-line
-// separated blocks into paragraphs. Escapes first so raw HTML in the answer
-// can never inject markup — the ** / - syntax survives escaping untouched.
-function formatAnswerHtml(text){
-if(!text)return '';
-const escaped=chatEscapeHtml(text);
-let styled=escaped.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
-styled=styled.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-weight:500;">$1</a>');
-const blocks=styled.split(/\n\s*\n/);
-return blocks.map(function(block){
-const lines=block.split('\n').map(function(l){return l.trim()}).filter(Boolean);
-if(!lines.length)return '';
-const isList=lines.every(function(l){return /^[-\u2022]\s+/.test(l)});
-if(isList){
-return '<ul style="margin:4px 0 10px 18px;padding:0;">'+lines.map(function(l){return '<li style="margin-bottom:6px;line-height:1.5;">'+l.replace(/^[-\u2022]\s+/,'')+'</li>'}).join('')+'</ul>';
-}
-return '<p style="margin:0 0 10px;line-height:1.5;">'+lines.join('<br>')+'</p>';
-}).join('');
-}
-function renderChatMeta(data){
-let html='';
-if(Array.isArray(data.actions)&&data.actions.length){
-html+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);"><p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#617387;margin:0 0 6px;">Suggested next steps</p>'+
-data.actions.map(function(a){return '<div style="font-size:13px;margin-bottom:4px;">\u2022 '+chatEscapeHtml(a.title)+' <span style="color:#8a97a6;font-size:11px;">('+chatEscapeHtml(a.priority)+')</span></div>'}).join('')+
-'</div>';
-}
-if(Array.isArray(data.sources)&&data.sources.length){
-html+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);"><p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#617387;margin:0 0 6px;">Sources</p>'+
-data.sources.map(function(s){
-// Simple backend uses {title, link, snippet}; the fuller backend uses {title, url, domain, official} — support both.
-const href=s.url||s.link||'';
-if(!href)return '';
-return '<div style="font-size:13px;margin-bottom:4px;"><a href="'+chatEscapeHtml(href)+'" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">'+chatEscapeHtml(s.title||s.domain||href)+'</a>'+(s.official?' <span style="color:#087c6d;font-size:11px;">\u00b7 official</span>':'')+'</div>'
-}).join('')+
-'</div>';
-}
-if(Array.isArray(data.warnings)&&data.warnings.length){
-html+='<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,.08);color:#9a6b1f;font-size:12px;line-height:1.5;">'+
-data.warnings.map(function(w){return '\u26a0 '+chatEscapeHtml(w)}).join('<br>')+
-'</div>';
-}
-if(data.confidence){
-const colors={high:'#087c6d',medium:'#9a6b1f',low:'#c0392b'};
-html+='<div style="margin-top:8px;font-size:11px;color:'+(colors[data.confidence]||'#617387')+';">Confidence: '+chatEscapeHtml(data.confidence)+'</div>';
-}
-return html;
-}
-// Formats an error response body into a readable string, handling both a
-// plain string `detail` and FastAPI's validation-error shape, where `detail`
-// is an array of {loc, msg, type} objects (this is what caused "[object
-// Object]" before — string-concatenating an array/object doesn't stringify it usefully).
-function formatErrorDetail(errBody){
-if(!errBody)return '';
-const d=errBody.detail;
-if(!d)return '';
-if(typeof d==='string')return d;
-if(Array.isArray(d)){
-return d.map(function(e){
-if(e&&typeof e==='object'){
-const field=Array.isArray(e.loc)?e.loc[e.loc.length-1]:'';
-return (field?field+': ':'')+(e.msg||JSON.stringify(e));
-}
-return String(e);
-}).join('; ');
-}
-try{return JSON.stringify(d)}catch(e){return String(d)}
-}
+const CHAT_FUNCTION_URL='https://YOUR-PROJECT-REF.supabase.co/functions/v1/chat-assistant'; // replace with your actual Edge Function URL
 async function ask(){
 const i=document.getElementById('question'),q=i.value.trim();
 if(!q)return;
 const c=document.getElementById('chat');
-c.insertAdjacentHTML('beforeend','<div class="bubble user">'+chatEscapeHtml(q)+'</div>');
+c.insertAdjacentHTML('beforeend','<div class="bubble user">'+q.replace(/[<>]/g,'')+'</div>');
 i.value='';
 c.scrollTop=c.scrollHeight;
-const thinking=chatAppendBubble('<span style="opacity:.6">Thinking\u2026</span>');
-const payload=Object.assign({text:q},buildApiProfileFields());
+const thinkingId='thinking-'+Date.now();
+c.insertAdjacentHTML('beforeend','<div class="bubble" id="'+thinkingId+'">Thinking…</div>');
+c.scrollTop=c.scrollHeight;
 try{
-const res=await fetch(RELOCATION_API_BASE_URL+RELOCATION_API_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-if(!res.ok){
-let detail='';
-try{const errBody=await res.json();detail=formatErrorDetail(errBody)}catch(e){}
-throw new Error('Backend returned '+res.status+(detail?(': '+detail):''))
-}
+const res=await fetch(CHAT_FUNCTION_URL,{
+method:'POST',
+headers:{'Content-Type':'application/json'},
+body:JSON.stringify({question:q,persona:currentPersona})
+});
 const data=await res.json();
-thinking.innerHTML=formatAnswerHtml(data.answer||'')+renderChatMeta(data);
+const bubble=document.getElementById(thinkingId);
+if(!res.ok||data.error){
+bubble.textContent="Sorry, I couldn't reach the assistant just now. Please try again.";
+}else{
+bubble.textContent=data.answer;
+}
 }catch(err){
-console.error('Relocation chat request failed:',err);
-thinking.innerHTML='I couldn\u2019t reach the assistant backend right now ('+chatEscapeHtml(err.message||'network error')+'). Make sure the backend API server is running at '+chatEscapeHtml(RELOCATION_API_BASE_URL)+' and try again.';
+const bubble=document.getElementById(thinkingId);
+bubble.textContent="Sorry, I couldn't reach the assistant just now. Please try again.";
 }
 c.scrollTop=c.scrollHeight;
-}modal.addEventListener('click',e=>{if(e.target===modal)closeOnboard()});
+}
+modal.addEventListener('click',e=>{if(e.target===modal)closeOnboard()});
